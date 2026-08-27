@@ -1042,32 +1042,11 @@ func (i *twoLevelCompactionIterator) skipForward(
 	key *InternalKey, val base.LazyValue,
 ) (*InternalKey, base.LazyValue) {
 	if key == nil {
-		for {
-			if key, _ := i.topLevelIndex.Next(); key == nil {
-				break
-			}
-			result := i.loadIndex(+1)
-			if result != loadBlockOK {
-				if i.err != nil {
-					break
-				}
-				switch result {
-				case loadBlockFailed:
-					// We checked that i.index was at a valid entry, so
-					// loadBlockFailed could not have happened due to to i.index
-					// being exhausted, and must be due to an error.
-					panic("loadBlock should not have failed with no error")
-				case loadBlockIrrelevant:
-					panic("compactionIter should not be using block intervals for skipping")
-				default:
-					panic(fmt.Sprintf("unexpected case %d", result))
-				}
-			}
-			// result == loadBlockOK
-			if key, val = i.singleLevelIterator.First(); key != nil {
-				break
-			}
-		}
+		// Walking on to the next block is the plain iterator's job. Doing it
+		// here too meant a block that could not be read was passed over
+		// rather than reported -- the scan carried on -- and a compaction
+		// wrote an output missing exactly those keys and called it a success.
+		key, val = i.twoLevelIterator.skipForward()
 	}
 
 	curOffset := i.recordOffset()
